@@ -132,6 +132,26 @@ function updateImportTrackerStatus (trackerId) {
   })
 }
 
+function updateImportTrackerProgressStart (trackerId, totalRecord = 0, progressTotal = 0) {
+  return new Promise(async (resolve, reject) => {
+    //let rethinkDbConnectionObj = await connectRethinkDB (rethinkDBConnection)
+    let updateData = {uploadProduct: progressTotal}
+    if (totalRecord > 0) {
+      updateData.totalProduct = totalRecord
+    }
+    rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
+    .filter({'id': trackerId})
+    .update(updateData)
+    .run(rethinkDbConnectionObj, function (err, cursor) {
+      if (err) {
+        reject(err)
+      } else {
+        resolve('import_to_confirm status updated')
+      }
+    })
+  })
+}
+
 async function getImportTrackerDetails (objWorkJob) {
   // make http request for user exist or not
   // makeHttpRequest(options, getUserRequestResponse, objWorkJob)
@@ -484,6 +504,7 @@ let delayPromise = (delay) => {
 
 let perPageDataUpload = 100
 let batchPromise = []
+let uploadedRecord = 0
 // to make batch for data upload
 async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProductUpdateJsonObj) {
   return new Promise(async (resolve, reject) => {
@@ -506,6 +527,9 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
       if (!err) {
           //
         console.log(' total data >>>> ', total)
+        uploadedRecord = 0
+        updateImportTrackerProgressStart(jobData.importTrackerId, total)
+
         let totalBatch = 1
         if (total > perPageDataUpload) {
             totalBatch = Math.ceil(total / perPageDataUpload)
@@ -515,7 +539,8 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
 
         await dumpToES(makeProductUpdateJsonObj)
         .then((result) => {
-          //console.log('==========dumpToES=result=====', result)
+          console.log('==========dumpToES=result=====', result)
+          uploadedRecord += makeProductUpdateJsonObj.length > 0 ? makeProductUpdateJsonObj.length / 2 : 0
           // resolve(result)
         })
         .catch(err => {
@@ -526,21 +551,20 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
         let batchPromiseObj
         for (let offset = 1; offset <= totalBatch; offset++) {
             // await delayPromise(7200)
-            if (offset % 2 === 0) {
-              batchPromiseObj = await makeJson(objWorkJob, listObjects, offset, currentProductsData, [])
-                                      .then((result) => {
-                                        console.log("===========================batchPromiseObj=result======", result)
-                                        resolve(result)
-                                      }).catch(err => {
-                                        console.log("Makebatch err", err)
-                                      })
-            } else {
-              batchPromiseObj = makeJson(objWorkJob, listObjects, offset, currentProductsData, []).catch(err => {
-                console.log("Makebatch err", err)
-              })
-            }
-            //console.log('===============', batchPromiseObj)
+            console.log("=============offset====", offset);
+            batchPromiseObj = makeJson(objWorkJob, listObjects, offset, currentProductsData, [])
+                                    .catch(err => {
+                                      console.log("Makebatch err", err)
+                                    })
             batchPromise.push(batchPromiseObj)
+            if (offset % 5 === 0) {
+              let dataTimeStamp = Date.now()
+              // console.log("=====start time ", dataTimeStamp)
+              await batchPromiseObj
+              // console.log("=====End Time ", Date.now(), "=======Tacken Time==", Date.now() - dataTimeStamp)
+            }
+            console.log("=============offset=end===", offset)
+            // console.log('===============', batchPromiseObj)
         }
         // mergeOtherProductData(objWorkJob, data, listObjects)
 
@@ -607,7 +631,7 @@ return new Promise(async (resolve, reject) => {
     for (let dataKey in data) {
       // data.forEach(async function (value, index) {
       let value = data[dataKey].toObject()
-      console.log("*************VALUE***********", value.sku);
+      // console.log("*************VALUE***********", value.sku);
       activeSummary.length = 0;
       // console.log("**************************",activeSummary,"*******************");
 
@@ -765,6 +789,8 @@ return new Promise(async (resolve, reject) => {
     await dumpToES(makeProductJsonObj)
     .then((result) => {
       console.log('==========dumpToES=result=====', result)
+      uploadedRecord += makeProductJsonObj.length > 0 ? makeProductJsonObj.length / 2 : 0
+      updateImportTrackerProgressStart(jobData.importTrackerId, 0, uploadedRecord)
       resolve(result)
     })
     .catch(err => {
@@ -1130,20 +1156,24 @@ async function getProductDataByESData (EsUser, sku) {
 }
 
 async function dumpToES (makeProductJsonObj) {
-  let bulkRowsString = makeProductJsonObj.map(function (row) {
-   // console.log("-------------------------",row,"----------------------------");
-    return JSON.stringify(row)
-  }).join('\n') + '\n'
-  bulkRowsString += '\n'
-  // console.log(makeProductJsonObj);
-  console.log("-------------------------bulk request----------------------------");
   return new Promise(function (resolve) {
-    ESClient.bulk({body: makeProductJsonObj}, function (err, resp) {
-      if (!err) {
-        resolve('Inserted')
-        console.log("makeProductJsonObj inserted.....")
-      }
-    })
+    if (makeProductJsonObj.length <= 0) {
+      resolve('no record to Insert')
+    }
+    let bulkRowsString = makeProductJsonObj.map(function (row) {
+     // console.log("-------------------------",row,"----------------------------");
+      return JSON.stringify(row)
+    }).join('\n') + '\n'
+    bulkRowsString += '\n'
+    // console.log(makeProductJsonObj);
+    console.log("-------------------------bulk request----------------------------");
+
+      ESClient.bulk({body: makeProductJsonObj}, function (err, resp) {
+        if (!err) {
+          resolve('Inserted')
+          console.log("makeProductJsonObj inserted.....")
+        }
+      })
   })
 }
 
