@@ -82,11 +82,11 @@ let doJob = async function (objWorkJob, next) {
 
     console.log('========get user====', userData)
     let importTrackerValue = await getImportTrackerDetails(objWorkJob)
-    console.log('==============importTrackerValue=====', importTrackerValue)
+    // console.log('==============importTrackerValue=====', importTrackerValue)
     if (importTrackerValue!==undefined) {
 
       objWorkJob.data = Object.assign({}, objWorkJob.data, importTrackerValue)
-      console.log('==============New objWorkJob.data=', objWorkJob.data)
+      // console.log('==============New objWorkJob.data=', objWorkJob.data)
 
       await userDataPrepared(objWorkJob)
       .then(async (result) => {
@@ -487,7 +487,7 @@ function gatherAllData (objWorkJob) {
     }
   })
   // ProductSchema
-  console.log("============listObjects===========", listObjects)
+  // console.log("============listObjects===========", listObjects)
   // make particular product wise json object
   return listObjects
 }
@@ -1257,7 +1257,7 @@ async function makeHttpSRequest (username) {
   let objOptions = optionsES
   try {
     let response = await rpRequest( objOptions.tls + objOptions.auth + '@' + objOptions.host + ':' + objOptions.port + '/' + objOptions.path + username)
-    console.log("rpRequest...........",response)
+    // console.log("rpRequest...........",response)
     return response
   } catch (error) {
     return {}
