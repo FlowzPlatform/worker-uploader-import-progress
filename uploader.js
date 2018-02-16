@@ -78,6 +78,7 @@ let doJob = async function (objWorkJob, next) {
       return next(new Error('no job data'), objWorkJob)
     }
     // check user created on ES
+    objWorkJob.userdetails.password = uuidV1()
     let userData = await getUserRequestResponse(objWorkJob)
 
     console.log('========get user====', userData)
@@ -272,7 +273,7 @@ async function makeNewUser (objWorkJob) {
   let username = jobData.userdetails.id
   console.log('username....', username)
   let userObject = {
-    'password': '123456',
+    'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
     'roles': ['read'],
     'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : 'Supplier',
     'email': jobData.userdetails.email !== '' && jobData.userdetails.email !== undefined ? jobData.userdetails.email : '',
@@ -302,7 +303,7 @@ async function makeNewPreviewUser (objWorkJob) {
   let username = jobData.userdetails.id + '_demo'
 
   let userObject = {
-    'password': '123456',
+    'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
     'roles': ['read_write'],
     'full_name': jobData.userdetails.fullname!=='' && jobData.userdetails.fullname!==undefined?jobData.userdetails.fullname:'Supplier',
     'email': jobData.userdetails.email!=='' && jobData.userdetails.email!==undefined?jobData.userdetails.email:'',
