@@ -272,9 +272,9 @@ async function makeNewUser (objWorkJob) {
   let username = jobData.userdetails.id
   console.log('username....', username)
   let userObject = {
-    'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+    'password': '123456',
     'roles': ['read'],
-    'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : jobData.userdetails.email,
+    'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : 'Supplier',
     'email': jobData.userdetails.email !== '' && jobData.userdetails.email !== undefined ? jobData.userdetails.email : '',
     'metadata': {
       'id': username,
@@ -302,7 +302,7 @@ async function makeNewPreviewUser (objWorkJob) {
   let username = jobData.userdetails.id + '_demo'
 
   let userObject = {
-    'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+    'password': '123456',
     'roles': ['read_write'],
     'full_name': jobData.userdetails.fullname!=='' && jobData.userdetails.fullname!==undefined?jobData.userdetails.fullname:'Supplier',
     'email': jobData.userdetails.email!=='' && jobData.userdetails.email!==undefined?jobData.userdetails.email:'',
@@ -310,7 +310,7 @@ async function makeNewPreviewUser (objWorkJob) {
       'id': username,
       'type': 'supplier',
       'company': jobData.userdetails.company!=='' && jobData.userdetails.company!==undefined?jobData.userdetails.company:'',
-      'sid': getUserNewVersion(ESuserData[jobData.userdetails.id])
+      'sid':getUserNewVersion(ESuserData[jobData.userdetails.id])
     },
     'enabled': true
   }
