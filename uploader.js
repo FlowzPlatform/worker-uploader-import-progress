@@ -78,7 +78,7 @@ let doJob = async function (objWorkJob, next) {
       return next(new Error('no job data'), objWorkJob)
     }
     // check user created on ES
-    objWorkJob.userdetails.password = uuidV1()
+    objWorkJob.data.userdetails.password = uuidV1()
     let userData = await getUserRequestResponse(objWorkJob)
 
     console.log('========get user====', userData)
