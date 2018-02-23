@@ -71,7 +71,7 @@ let fileTypes =
 
 let rethinkDbConnectionObj = null
 let doJob = async function (objWorkJob, next) {
-  rethinkDbConnectionObj = await connectRethinkDB (rethinkDBConnection)
+  rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
   return new Promise(async (resolve, reject) => {
     console.log('==============In Do Job==============')
     if (!objWorkJob.data) {
@@ -84,8 +84,7 @@ let doJob = async function (objWorkJob, next) {
     console.log('========get user====', userData)
     let importTrackerValue = await getImportTrackerDetails(objWorkJob)
     // console.log('==============importTrackerValue=====', importTrackerValue)
-    if (importTrackerValue!==undefined) {
-
+    if (importTrackerValue !== undefined) {
       objWorkJob.data = Object.assign({}, objWorkJob.data, importTrackerValue)
       // console.log('==============New objWorkJob.data=', objWorkJob.data)
 
@@ -119,7 +118,7 @@ let doJob = async function (objWorkJob, next) {
 
 function updateImportTrackerStatus (trackerId) {
   return new Promise(async (resolve, reject) => {
-    //let rethinkDbConnectionObj = await connectRethinkDB (rethinkDBConnection)
+    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
     rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
     .filter({'id': trackerId})
     .update({stepStatus: 'import_to_confirm'})
@@ -135,7 +134,7 @@ function updateImportTrackerStatus (trackerId) {
 
 function updateImportTrackerProgressStart (trackerId, totalRecord = 0, progressTotal = 0) {
   return new Promise(async (resolve, reject) => {
-    //let rethinkDbConnectionObj = await connectRethinkDB (rethinkDBConnection)
+    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
     let updateData = {uploadProduct: progressTotal}
     if (totalRecord > 0) {
       updateData.totalProduct = totalRecord
@@ -159,7 +158,7 @@ async function getImportTrackerDetails (objWorkJob) {
   return new Promise(async (resolve, reject) => {
     try {
       // console.log("===========getImportTrackerDetails============1", rethinkDBConnection)
-      // rethinkDbConnectionObj = await connectRethinkDB (rethinkDBConnection)
+      rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
       // console.log("===========rethink conn obj created============",objWorkJob.data)
       let importData = await findImportTrackerData(rethinkDbConnectionObj, rethinkDBConnection.db, rethinkDBConnection.table, objWorkJob.data.importTrackerId)
       // console.log("===========treaker Data============", importData)
@@ -233,10 +232,11 @@ async function findVirtualShopData (rconnObj, rdb, rtable, username, userObj) {
 async function connectRethinkDB (cxnOptions) {
   return new Promise((resolve, reject) => {
     console.log("connction object", cxnOptions)
-    rethink.connect(cxnOptions, function (err, conn) {
+    rethink.connect(cxnOptions, async function (err, conn) {
       if (err) {
         console.log("connection error", err)
-        // connectRethinkDB(cxnOptions)
+        let conn1 = await connectRethinkDB(cxnOptions)
+        resolve(conn1)
       } else {
         resolve(conn)
       }
@@ -293,6 +293,7 @@ async function makeNewUser (objWorkJob) {
     // User Exists
     // console.log('User Exists', objWorkJob)
     ESuserData = JSON.parse(userData)
+    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
     await findVirtualShopData(rethinkDbConnectionObj, rethinkDBConnection.vshopdb, rethinkDBConnection.vshoptable, username, userObject)
     return ESuserData
   }
@@ -629,7 +630,9 @@ return new Promise(async (resolve, reject) => {
 
     // console.log("=======getUserNextVersion=",getUserNextVersion)
     let currentProductData = []
+    let idInc = 0
     for (let dataKey in data) {
+      idInc++
       // data.forEach(async function (value, index) {
       let value = data[dataKey].toObject()
       // console.log("*************VALUE***********", value.sku);
@@ -662,7 +665,7 @@ return new Promise(async (resolve, reject) => {
         index: {
           _index: productIndex,
           _type: productDataType,
-          _id: uuidV1() // data[index]._id
+          _id: uuidV1() + '-' + idInc // data[index]._id
         }
       })
       // delete _id form value object
