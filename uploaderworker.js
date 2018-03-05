@@ -28,7 +28,7 @@ if (process.env.mongoURL !== undefined && process.env.mongoURL !== '') {
 mongoose.Promise = global.Promise
 // Connect to the beerlocker MongoDB
 // mongoose.connect('mongodb://localhost:3001/meteor');
-mongoose.connect(mongoURL, {keepAlive: 800000, connectTimeoutMS: 800000}, function (err, db) {
+mongoose.connect(mongoURL, {reconnectInterval: 5000, poolSize: 5, reconnectTries: 30, keepAlive: 800000, connectTimeoutMS: 800000}, function (err, db) {
   if (err) {
     console.log('error.........', err)
   }
