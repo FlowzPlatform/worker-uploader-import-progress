@@ -196,7 +196,7 @@ async function findVirtualShopData (rconnObj, rdb, rtable, username, userObj) {
   return new Promise(async (resolve, reject) => {
     console.log('================findVal=========', username)
     rethink.db(rdb).table(rtable)
-    .filter({'esUser': username})
+    .filter({'esUser': username,'userType': 'supplier'})
     .run(rconnObj, function (err, cursor) {
       if (err) {
         reject(err)
