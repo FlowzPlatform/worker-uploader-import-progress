@@ -44,11 +44,17 @@ let queueOption = {
 }
 
 process.on('unhandledRejection', (reason, p) => {
-  console.log('Unhandled Rejection reason:', reason);
+  console.log('Unhandled Rejection reason:', reason, p);
   // application specific logging, throwing an error, or other logic here
 });
 
 const objQ = new rfqQueue(connctionOption, queueOption)
+
+objQ.on('error', (err) => {
+  console.log('Queue Id: ' + err.queueId)
+  console.error(err)
+})
+
 
 function getJobQueue () {
   objQ.process(async (job, next) => {

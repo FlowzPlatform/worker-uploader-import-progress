@@ -48,6 +48,7 @@ let ESClient = new elasticsearch.Client({
   requestTimeout: 100000
 //  ,log: 'trace'
 })
+let uploadedRecord = 0
 
 let optionsES = {
   tls: 'https://',
@@ -118,6 +119,10 @@ let doJob = async function (objWorkJob, next) {
 
 function updateImportTrackerStatus (trackerId) {
   return new Promise(async (resolve, reject) => {
+    if (uploadedRecord <=0) {
+      reject({"message" :"data not uploaded, record count is zero"})
+    }
+
     rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
     rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
     .filter({'id': trackerId})
@@ -506,7 +511,7 @@ let delayPromise = (delay) => {
 
 let perPageDataUpload = 100
 let batchPromise = []
-let uploadedRecord = 0
+
 // to make batch for data upload
 async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProductUpdateJsonObj) {
   return new Promise(async (resolve, reject) => {
