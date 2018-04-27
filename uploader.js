@@ -1,6 +1,6 @@
 let mongoose = require('mongoose')
 const extend = require('util')._extend;
-mongoose.set('debug', true);
+mongoose.set('debug', false);
 let ObjectId = require('mongoose').Types.ObjectId
 const config = require('config')
 
