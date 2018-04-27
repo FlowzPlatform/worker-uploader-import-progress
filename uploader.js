@@ -1055,8 +1055,7 @@ function formatImages (result) {
       // console.log("inside..............................................................................")
         images.push({'web_image': result['web_image_' + i],
                      'color': result['color_' + i],
-                     'image_color_code': result['image_color_code_' + i],
-                     'secure_url': result['secure_url_' + i]
+                     'image_color_code': result['image_color_code_' + i]
           })
         }
         delete result['web_image_' + i]
