@@ -1,6 +1,6 @@
 let mongoose = require('mongoose')
 const extend = require('util')._extend;
-mongoose.set('debug', true);
+mongoose.set('debug', false);
 let ObjectId = require('mongoose').Types.ObjectId
 const config = require('config')
 
@@ -67,7 +67,7 @@ let activeSummary = []
 let ESClient = new elasticsearch.Client({
   host: esUrl,
   requestTimeout: 100000
-// ,log: 'trace'
+ // ,log: 'trace'
 })
 let uploadedRecord = 0
 
@@ -93,6 +93,7 @@ let fileTypes =
 
 let rethinkDbConnectionObj = null
 let doJob = async function (objWorkJob, next) {
+  finalSKU = []
   rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
   return new Promise(async (resolve, reject) => {
     console.log('==============In Do Job==============')
@@ -369,7 +370,7 @@ function getUserDataFromMongo(userid) {
   let userDataa =  modelOBUsers.find({'_id': userid})
   return userDataa
 }
-
+let finalSKU = []
 async function userDataPrepared (objWorkJob) {
   //console.log('ESuserData', ESuserData)
   // user data not set throws exception user not exists
@@ -412,7 +413,7 @@ async function userDataPrepared (objWorkJob) {
     }
   })
 }
-let finalSKU = []
+
 async function getUpdateRecords (objWorkJob, currentProducts, futureProducts) {
   let uploadType = objWorkJob.data.uploadType
   let jobData = objWorkJob.data
@@ -1108,6 +1109,7 @@ async function deleteESData (versionNo, EsUser) {
               ]
           }
       },
+      "_source": ["sku","vid"],
       "size":10000
     }
     await ESClient.search({
