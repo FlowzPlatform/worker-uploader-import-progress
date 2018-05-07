@@ -11,8 +11,9 @@
   "dependencies": {
     "config": "^1.29.1",
     "elasticsearch": "^13.2.0",
+    "es6-promise": "^4.2.4",
     "extend": "^3.0.1",
-    "mongoose": "4.11.4",
+    "mongoose": "^5.0.17",
     "request": "^2.83.0",
     "request-promise": "^4.2.1",
     "rethinkdb": "^2.3.3",

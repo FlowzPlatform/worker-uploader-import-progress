@@ -1,6 +1,6 @@
 let mongoose = require('mongoose')
 const extend = require('util')._extend;
-mongoose.set('debug', true);
+mongoose.set('debug', false);
 let ObjectId = require('mongoose').Types.ObjectId
 const config = require('config')
 
@@ -251,8 +251,11 @@ async function findVirtualShopData (rconnObj, rdb, rtable, username, userObj) {
                 .table(rtable)
                 .insert(vshopUserObject)
                 .run(rconnObj)
+              resolve(true)
+            } else {
+                resolve(false)
             }
-            resolve(result[0])
+
           }
         })
         // resolve(JSON.stringify(result, null, 2))
@@ -291,6 +294,21 @@ let getUserRequestResponse = async function (objWorkJob) {
     // User Exists
     ESuserData = JSON.parse(userData)
     let PreviewUserData = await makeNewPreviewUser(objWorkJob)
+    let userObject = {
+      'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+      'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : 'Supplier',
+      'metadata': {
+        'company': jobData.userdetails.company !== '' && jobData.userdetails.company !== undefined ? jobData.userdetails.company : ''
+      }
+    }
+    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
+    let isUserNotExist = await findVirtualShopData(rethinkDbConnectionObj, rethinkDBConnection.vshopdb, rethinkDBConnection.vshoptable, username, userObject)
+    if(isUserNotExist) {
+      let userObject = {
+        'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+        }
+      await makeHttpsPostPasswordUpdateRequest(username, userObject)
+    }
     return ESuserData
   } else {
     // make new user with version
@@ -1313,6 +1331,19 @@ async function makeHttpsPostRequest (username, userData) {
     method: 'POST',
     uri: objOptions.tls + objOptions.auth + '@' + objOptions.host + ':' + objOptions.port + '/' + objOptions.path + username,
     body: userData,
+    json: true
+  }
+
+  let response = await rpRequest(reqOptions)
+  return response
+}
+
+async function makeHttpsPostPasswordUpdateRequest (username, userPassword) {
+  let objOptions = optionsES
+  let reqOptions = {
+    method: 'POST',
+    uri: objOptions.tls + objOptions.auth + '@' + objOptions.host + ':' + objOptions.port + '/' + objOptions.path + username+'/_password',
+    body: userPassword,
     json: true
   }
 
