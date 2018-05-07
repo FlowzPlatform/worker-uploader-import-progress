@@ -15,7 +15,6 @@ then
     RANCHER_SECRETKEY="$RANCHER_SECRETKEY_MASTER";
     RANCHER_URL="$RANCHER_URL_MASTER";
     PDMINDEX="$PDM_INDEX_MASTER";
-    name="$name_master";
   }
 elif [ "$TRAVIS_BRANCH" = "develop" ]
 then
@@ -33,7 +32,6 @@ then
       RANCHER_SECRETKEY="$RANCHER_SECRETKEY_DEVELOP";
       RANCHER_URL="$RANCHER_URL_DEVELOP";
       PDMINDEX="$PDM_INDEX_DEVELOP";
-      name="$name_develop";
   }
 elif [ "$TRAVIS_BRANCH" = "staging" ]
 then
@@ -51,7 +49,6 @@ then
       RANCHER_SECRETKEY="$RANCHER_SECRETKEY_STAGING";
       RANCHER_URL="$RANCHER_URL_STAGING";
       PDMINDEX="$PDM_INDEX_STAGING";
-      name="$name_staging";
   }
 else
   {
@@ -68,7 +65,6 @@ else
       RANCHER_SECRETKEY="$RANCHER_SECRETKEY_QA";
       RANCHER_URL="$RANCHER_URL_QA";
       PDMINDEX="$PDM_INDEX_QA";
-      name="$name_qa";
   }
 fi
 
@@ -80,5 +76,5 @@ curl -u ""$RANCHER_ACCESSKEY":"$RANCHER_SECRETKEY"" \
 -H 'Accept: application/json' \
 -H 'Content-Type: application/json' \
 -d '{
-     "inServiceStrategy":{"launchConfig": {"imageUuid":"docker:'$USERNAME'/worker_uploader_import_progress:'$TAG'","kind": "container","labels":{"io.rancher.container.pull_image": "always","io.rancher.scheduler.affinity:host_label": "machine=cluster-flowz"},"environment": {"rdbHost": "'"$rdbHost"'","rdbPort": "'"$rdbPort"'","mongoURL":"'"$MONGO_URL"'","esHost":"'"$ESHOST"'","esPort":"'"$ESPORT"'","esAuth":"'"$ESAUTH"'","pdmIndex":"'"$PDMINDEX"'","name":"'"$name"'"}}},"toServiceStrategy":null}' \
+     "inServiceStrategy":{"launchConfig": {"imageUuid":"docker:'$USERNAME'/worker_uploader_import_progress:'$TAG'","kind": "container","labels":{"io.rancher.container.pull_image": "always","io.rancher.scheduler.affinity:host_label": "machine=cluster-flowz"},"environment": {"rdbHost": "'"$rdbHost"'","rdbPort": "'"$rdbPort"'","mongoURL":"'"$MONGO_URL"'","esHost":"'"$ESHOST"'","esPort":"'"$ESPORT"'","esAuth":"'"$ESAUTH"'","pdmIndex":"'"$PDMINDEX"'"}}},"toServiceStrategy":null}' \
 $RANCHER_URL/v2-beta/projects/$ENV_ID/services/$SERVICE_ID?action=upgrade
