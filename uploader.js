@@ -2,8 +2,30 @@ let mongoose = require('mongoose')
 const extend = require('util')._extend;
 mongoose.set('debug', false);
 let ObjectId = require('mongoose').Types.ObjectId
-
 const config = require('config')
+
+let mongoDBConnection = config.get('mongoDBConnection')
+
+let mongoURL = mongoDBConnection.URL
+if (process.env.mongoURL !== undefined && process.env.mongoURL !== '') {
+  mongoURL = process.env.mongoURL
+}
+
+// console.log("==========", mongoURL)
+// `Job` here has essentially the same API as JobCollection on Meteor.
+// In fact, job-collection is built on top of the 'meteor-job' npm package!
+mongoose.Promise = global.Promise
+// Connect to the beerlocker MongoDB
+// mongoose.connect('mongodb://localhost:3001/meteor');
+mongoose.connect(mongoURL, {autoReconnect : true, bufferMaxEntries: 0, reconnectInterval: 1000, poolSize: 5, reconnectTries: 30, keepAlive: 800000, connectTimeoutMS: 800000}, function (err, db) {
+  if (err) {
+    console.log('error.........', err)
+  }
+})
+// mongoose.connect('mongodb://obdev:123456@ds133311.mlab.com:33311/closeoutpromo');
+let ObjSchema = mongoose.Schema
+
+
 
 let elasticsearch = require('elasticsearch')
 let rpRequest = require('request-promise')
@@ -13,7 +35,6 @@ let https = require('https')
 const uuidV1 = require('uuid/v1');
 let ESuserData = null
 let Promise = require('es6-promise').Promise
-let ObjSchema =  mongoose.Schema;
 
 let rethink = require('rethinkdb')
 let rethinkDBConnection = extend({}, config.get('rethinkDBConnection'))
@@ -46,8 +67,9 @@ let activeSummary = []
 let ESClient = new elasticsearch.Client({
   host: esUrl,
   requestTimeout: 100000
-//  ,log: 'trace'
+ // ,log: 'trace'
 })
+let uploadedRecord = 0
 
 let optionsES = {
   tls: 'https://',
@@ -71,6 +93,7 @@ let fileTypes =
 
 let rethinkDbConnectionObj = null
 let doJob = async function (objWorkJob, next) {
+  finalSKU = []
   rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
   return new Promise(async (resolve, reject) => {
     console.log('==============In Do Job==============')
@@ -118,6 +141,10 @@ let doJob = async function (objWorkJob, next) {
 
 function updateImportTrackerStatus (trackerId) {
   return new Promise(async (resolve, reject) => {
+    if (uploadedRecord <=0) {
+      reject({"message" :"data not uploaded, record count is zero"})
+    }
+
     rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
     rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
     .filter({'id': trackerId})
@@ -196,7 +223,7 @@ async function findVirtualShopData (rconnObj, rdb, rtable, username, userObj) {
   return new Promise(async (resolve, reject) => {
     console.log('================findVal=========', username)
     rethink.db(rdb).table(rtable)
-    .filter({'esUser': username})
+    .filter({'esUser': username,'userType': 'supplier'})
     .run(rconnObj, function (err, cursor) {
       if (err) {
         reject(err)
@@ -332,7 +359,7 @@ async function makeNewPreviewUser (objWorkJob) {
 
 
 function getUserDataFromMongo(userid) {
-  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false, 'collection': 'users'})
+  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false,bufferCommands: false, 'collection': 'users'})
   let modelOBUsers
   let modelName = 'mdlUsers'
   if (mongoose.models && mongoose.models[modelName]){
@@ -343,7 +370,7 @@ function getUserDataFromMongo(userid) {
   let userDataa =  modelOBUsers.find({'_id': userid})
   return userDataa
 }
-
+let finalSKU = []
 async function userDataPrepared (objWorkJob) {
   //console.log('ESuserData', ESuserData)
   // user data not set throws exception user not exists
@@ -386,7 +413,7 @@ async function userDataPrepared (objWorkJob) {
     }
   })
 }
-let finalSKU = []
+
 async function getUpdateRecords (objWorkJob, currentProducts, futureProducts) {
   let uploadType = objWorkJob.data.uploadType
   let jobData = objWorkJob.data
@@ -506,7 +533,7 @@ let delayPromise = (delay) => {
 
 let perPageDataUpload = 100
 let batchPromise = []
-let uploadedRecord = 0
+
 // to make batch for data upload
 async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProductUpdateJsonObj) {
   return new Promise(async (resolve, reject) => {
@@ -1049,7 +1076,7 @@ function getUserNewVersion (ESUser) {
 
 function makeDynamicCollectionObj (collectionName) {
   collectionName = collectionName.charAt(0).toUpperCase() + collectionName.slice(1).toLowerCase()
-  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false, 'collection': collectionPrefix + collectionName})
+  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false, bufferCommands: false, 'collection': collectionPrefix + collectionName})
   let modelName = 'mdl'+collectionName
   if (mongoose.models && mongoose.models[modelName]){
     return mongoose.models[modelName]
@@ -1060,7 +1087,7 @@ function makeDynamicCollectionObj (collectionName) {
 
 function makeDynamicCollectionObjWithoutPrefix (collectionName) {
   // collectionName = collectionName.charAt(0).toUpperCase() + collectionName.slice(1).toLowerCase()
-  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false, 'collection': collectionName})
+  let ObjMain = new ObjSchema({_id: 'string'}, {strict: false, bufferCommands: false, 'collection': collectionName})
   let modelName = 'mdl'+collectionName
   if (mongoose.models && mongoose.models[modelName]){
     return mongoose.models[modelName]
@@ -1082,6 +1109,7 @@ async function deleteESData (versionNo, EsUser) {
               ]
           }
       },
+      "_source": ["sku","vid"],
       "size":10000
     }
     await ESClient.search({
@@ -1188,7 +1216,7 @@ function convertStringToArray (str, seprater) {
 
 // to update user job queue process status to import_completed
 function updateJobQueueStatus (objWorkJob) {
-  let objJobMaster = new ObjSchema({_id: String}, {strict: false, 'collection': 'uploaderJobMaster'})
+  let objJobMaster = new ObjSchema({_id: String}, {strict: false, bufferCommands: false, 'collection': 'uploaderJobMaster'})
   let mdlobjJobMaster = null
   if (mongoose.models && mongoose.models.objJobMaster) {
     mdlobjJobMaster = mongoose.models.objJobMaster
