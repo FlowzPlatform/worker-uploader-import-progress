@@ -759,6 +759,9 @@ return new Promise(async (resolve, reject) => {
       if (value['search_keyword']) {
         value['search_keyword'] = convertStringToArray(value['search_keyword'], '|')
       }
+      if (value['tags']) {
+        value['tags'] = convertStringToArray(value['tags'], '|')
+      }
       // value['available_regions'] = convertStringToArray(value['available_regions'], ',')
       // value['nonavailable_regions'] = convertStringToArray(value['nonavailable_regions'], ',')
 
