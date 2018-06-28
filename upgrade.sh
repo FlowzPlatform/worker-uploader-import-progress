@@ -92,5 +92,5 @@ curl -u ""$RANCHER_ACCESSKEY":"$RANCHER_SECRETKEY"" \
 -H 'Accept: application/json' \
 -H 'Content-Type: application/json' \
 -d '{
-     "inServiceStrategy":{"launchConfig": {"imageUuid":"docker:'$USERNAME'/worker_uploader_import_progress:'$TAG'","kind": "container","labels":{"io.rancher.container.pull_image": "always","io.rancher.scheduler.affinity:host_label": "'"$BACKEND_HOST"'"},"environment": {"rdbHost": "'"$RDB_HOST"'","rdbPort": "'"$RDB_HOST"'","mongoURL":"'"$MONGO_URL"'","esHost":"'"$ESHOST"'","esPort":"'"$ESPORT"'","esAuth":"'"$ESAUTH"'","pdmIndex":"'"$PDMINDEX"'"}}},"toServiceStrategy":null}' \
+     "inServiceStrategy":{"launchConfig": {"imageUuid":"docker:'$USERNAME'/worker_uploader_import_progress:'$TAG'","kind": "container","labels":{"io.rancher.container.pull_image": "always","io.rancher.scheduler.affinity:host_label": "'"$BACKEND_HOST"'"},"environment": {"rdbHost": "'"$RDB_HOST"'","rdbPort": "'"$RDB_PORT"'","mongoURL":"'"$MONGO_URL"'","esHost":"'"$ESHOST"'","esPort":"'"$ESPORT"'","esAuth":"'"$ESAUTH"'","pdmIndex":"'"$PDMINDEX"'"}}},"toServiceStrategy":null}' \
 $RANCHER_URL/v2-beta/projects/$ENV_ID/services/$SERVICE_ID?action=upgrade
