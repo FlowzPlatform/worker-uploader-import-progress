@@ -1,6 +1,6 @@
 let mongoose = require('mongoose')
 const extend = require('util')._extend;
-mongoose.set('debug', false);
+mongoose.set('debug', true);
 let ObjectId = require('mongoose').Types.ObjectId
 const config = require('config')
 
@@ -43,6 +43,11 @@ if (process.env.rdbHost !== undefined && process.env.rdbHost !== '') {
 }
 if (process.env.rdbPort !== undefined && process.env.rdbPort !== '') {
   rethinkDBConnection.port = process.env.rdbPort
+}
+
+let pdmIndex = 'pdm1'
+if (process.env.pdmIndex !== undefined && process.env.pdmIndex !== '') {
+  pdmIndex = process.env.pdmIndex
 }
 
 let attributeKeys = ['attr_colors','attr_imprint_color', 'attr_shape', 'attr_decimal']
@@ -143,19 +148,19 @@ function updateImportTrackerStatus (trackerId) {
   return new Promise(async (resolve, reject) => {
     if (uploadedRecord <=0) {
       reject({"message" :"data not uploaded, record count is zero"})
+    } else {
+      rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
+      rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
+      .filter({'id': trackerId})
+      .update({stepStatus: 'import_to_confirm'})
+      .run(rethinkDbConnectionObj, function (err, cursor) {
+        if (err) {
+          reject(err)
+        } else {
+          resolve('import_to_confirm status updated')
+        }
+      })
     }
-
-    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
-    rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
-    .filter({'id': trackerId})
-    .update({stepStatus: 'import_to_confirm'})
-    .run(rethinkDbConnectionObj, function (err, cursor) {
-      if (err) {
-        reject(err)
-      } else {
-        resolve('import_to_confirm status updated')
-      }
-    })
   })
 }
 
@@ -246,8 +251,11 @@ async function findVirtualShopData (rconnObj, rdb, rtable, username, userObj) {
                 .table(rtable)
                 .insert(vshopUserObject)
                 .run(rconnObj)
+              resolve(true)
+            } else {
+                resolve(false)
             }
-            resolve(result[0])
+
           }
         })
         // resolve(JSON.stringify(result, null, 2))
@@ -286,6 +294,21 @@ let getUserRequestResponse = async function (objWorkJob) {
     // User Exists
     ESuserData = JSON.parse(userData)
     let PreviewUserData = await makeNewPreviewUser(objWorkJob)
+    let userObject = {
+      'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+      'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : 'Supplier',
+      'metadata': {
+        'company': jobData.userdetails.company !== '' && jobData.userdetails.company !== undefined ? jobData.userdetails.company : ''
+      }
+    }
+    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
+    let isUserNotExist = await findVirtualShopData(rethinkDbConnectionObj, rethinkDBConnection.vshopdb, rethinkDBConnection.vshoptable, username, userObject)
+    if(isUserNotExist) {
+      let userObject = {
+        'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
+        }
+      await makeHttpsPostPasswordUpdateRequest(username, userObject)
+    }
     return ESuserData
   } else {
     // make new user with version
@@ -553,7 +576,7 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
     mainFileData.count({'fileID': mainFileObj.id,
                 'sku':{$nin:finalSKU}},
       async function (err, total) {
-      if (!err) {
+      if (!err && total > 0) {
           //
         console.log(' total data >>>> ', total)
         uploadedRecord = 0
@@ -602,6 +625,9 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
           resolve(result)
         })
         // setAllPromiseResolved(resolve, reject, batchPromise)
+      } else {
+        console.log(' total record zero data >>>> ', total)
+        reject('Total Number of record is 0, So data will not process')
       }
     })
   })
@@ -733,6 +759,9 @@ return new Promise(async (resolve, reject) => {
       if (value['search_keyword']) {
         value['search_keyword'] = convertStringToArray(value['search_keyword'], '|')
       }
+      if (value['product_tags']) {
+        value['product_tags'] = convertStringToArray(value['tags'], '|')
+      }
       // value['available_regions'] = convertStringToArray(value['available_regions'], ',')
       // value['nonavailable_regions'] = convertStringToArray(value['nonavailable_regions'], ',')
 
@@ -789,6 +818,7 @@ return new Promise(async (resolve, reject) => {
       // console.log("---------------------------------------->",ESuserData[jobData.userdetails.id]['metadata']['company'])
       // value['supplier_id'] = ESuserData[jobData.userdetails.id]['metadata']['id']
       value['supplier_id'] = ESuserData[jobData.userdetails.id]['metadata']['id']
+      value['createdAt'] = Date.now()
       value['supplier_info'] = {
                                 'company': ESuserData[jobData.userdetails.id]['metadata']['company'],
                                 'username': jobData.userdetails.id,
@@ -1055,12 +1085,14 @@ function formatImages (result) {
       // console.log("inside..............................................................................")
         images.push({'web_image': result['web_image_' + i],
                      'color': result['color_' + i],
-                     'image_color_code': result['image_color_code_' + i]
+                     'image_color_code': result['image_color_code_' + i],
+                     'secure_url': result['secure_url_' + i]
           })
         }
         delete result['web_image_' + i]
         delete result['image_color_code_' + i]
         delete result['color_' + i]
+        delete result['secure_url_' + i]
     }
   return (images)
 }
@@ -1096,7 +1128,7 @@ function makeDynamicCollectionObjWithoutPrefix (collectionName) {
   }
 }
 
-const productIndex = 'pdm1'
+const productIndex = pdmIndex
 const productDataType = 'product'
 
 async function deleteESData (versionNo, EsUser) {
@@ -1302,6 +1334,19 @@ async function makeHttpsPostRequest (username, userData) {
     method: 'POST',
     uri: objOptions.tls + objOptions.auth + '@' + objOptions.host + ':' + objOptions.port + '/' + objOptions.path + username,
     body: userData,
+    json: true
+  }
+
+  let response = await rpRequest(reqOptions)
+  return response
+}
+
+async function makeHttpsPostPasswordUpdateRequest (username, userPassword) {
+  let objOptions = optionsES
+  let reqOptions = {
+    method: 'POST',
+    uri: objOptions.tls + objOptions.auth + '@' + objOptions.host + ':' + objOptions.port + '/' + objOptions.path + username+'/_password',
+    body: userPassword,
     json: true
   }
 
