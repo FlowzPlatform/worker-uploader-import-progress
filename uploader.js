@@ -50,7 +50,7 @@ if (process.env.pdmIndex !== undefined && process.env.pdmIndex !== '') {
   pdmIndex = process.env.pdmIndex
 }
 
-let attributeKeys = ['attr_colors','attr_imprint_color', 'attr_shape', 'attr_decimal']
+let attributeKeys = ['attr_colors','attr_imprint_color', 'attr_shape', 'attr_decimal', 'attr_style', 'attr_size']
 let featureKeys = ['feature_1','feature_2','feature_3','feature_4','feature_5','feature_6','feature_7','feature_8','feature_9','feature_10','feature_11','feature_12','feature_13','feature_14','feature_15','feature_16','feature_17','feature_18','feature_19','feature_20','feature_21','feature_22','feature_23','feature_24','feature_25','feature_26','feature_27','feature_28','feature_29','feature_30','feature_31','feature_32','feature_33','feature_34']
 
 let ESConnection = extend({}, config.get('ESConnection'))
@@ -93,7 +93,8 @@ let fileTypes =
     { id: 'ProductImage', name: 'Image', isDone: false, isActive: false, 'esKey': 'images' }, // header: ProductImageHeaders, collection: CollProductImage },
     { id: 'ProductShipping', name: 'Shipping', isDone: false, isActive: false, 'esKey': 'shipping' }, // header: ProductShippingHeaders, collection: CollProductShipping },
     { id: 'ProductAdditionalCharges', name: 'Additional Charges', isDone: false, isActive: false, 'esKey': 'additional_charge' }, // header: ProductAdditionalChargeHeaders, collection: CollProductAdditionalCharges },
-    { id: 'ProductVariationPrice', name: 'Variation Price', isDone: false, isActive: false, 'esKey': 'pricing_variation' } // header: ProductVariationPricingHeaders, collection: CollProductVariationPrice }
+    { id: 'ProductVariationPrice', name: 'Variation Price', isDone: false, isActive: false, 'esKey': 'pricing_variation' }, // header: ProductVariationPricingHeaders, collection: CollProductVariationPrice }
+    { id: 'WebsiteInventory', name: 'Website Inventory', isDone: false, isActive: false, 'esKey': 'inventory' }
   ]
 
 let rethinkDbConnectionObj = null
@@ -713,7 +714,6 @@ return new Promise(async (resolve, reject) => {
        value = await getProductSpecificOtherValues(listObjects[listObjectKey], value, currentProductData)
       }
      }
-     // console.log("========================value.sku=", value.sku)
      makeProductJsonObj.push({
         index: {
           _index: productIndex,
@@ -893,7 +893,6 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
       let collObject = makeDynamicCollectionObj(fValue['indexKey'])
       let available_currencies = convertStringToArray(value['available_currencies'], '|')
       let baseCurrency =   available_currencies[0]
-      // console.log("************* baseCurrency",baseCurrency,"****************")
 
       await collObject.find({'sku': value.sku, 'fileID': fValue['id']}, function (err, result) {
         if(!err) {
@@ -905,7 +904,6 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
               delete result[index].owner
               delete result[index].username
               delete result[index].sr_no
-
               if(fValue['indexKey'] == 'ProductShipping'){
                 result[index].shipping_range = formatShippingRange(result[index])
                 // console.log("**************  result[index].shipping_range***************",result[index].shipping_range)
@@ -919,6 +917,19 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
               if(fValue['indexKey'] === 'ProductImage') {
                 result[index].images = formatImages(result[index])
                 // console.log("###########",result[index])
+              }
+
+              if(fValue['indexKey'] === 'WebsiteInventory') {
+                attributeKeys.forEach(function (aIndex, aValue) {
+                  if(result[index][aIndex] && result[index][aIndex].length > 0) {
+                      if(!result[index].attributes) {
+                        result[index].attributes = {}
+                      }
+                      let keyValue = aIndex.replace('attr_', '')
+                      result[index].attributes[keyValue] = convertStringToArray(result[index][aIndex], '|')
+                      delete(result[index][aIndex])
+                  }
+                })
               }
 
               if(fValue['indexKey'] === 'ProductPrice') {
