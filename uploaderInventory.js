@@ -86,16 +86,9 @@ let optionsES = {
   // headers: {'custom': 'Custom Header Demo works'}
 }
 
-let fileTypes =
-  [ { id: 'ProductInformation', name: 'Product Information', isDone: false, isActive: true, 'esKey': ''}, // header: ProductInformationHeaders, collection: CollProductInformation },
-    { id: 'ProductPrice', name: 'Product Pricing', isDone: false, isActive: false, 'esKey': 'pricing' }, // header: ProductPriceHeaders, collection: CollProductPrice },
-    { id: 'ProductImprintData', name: 'Imprint Data', isDone: false, isActive: false, 'esKey': 'imprint_data' }, // header: ProductImprintDataHeaders, collection: CollProductImprintData },
-    { id: 'ProductImage', name: 'Image', isDone: false, isActive: false, 'esKey': 'images' }, // header: ProductImageHeaders, collection: CollProductImage },
-    { id: 'ProductShipping', name: 'Shipping', isDone: false, isActive: false, 'esKey': 'shipping' }, // header: ProductShippingHeaders, collection: CollProductShipping },
-    { id: 'ProductAdditionalCharges', name: 'Additional Charges', isDone: false, isActive: false, 'esKey': 'additional_charge' }, // header: ProductAdditionalChargeHeaders, collection: CollProductAdditionalCharges },
-    { id: 'ProductVariationPrice', name: 'Variation Price', isDone: false, isActive: false, 'esKey': 'pricing_variation' }, // header: ProductVariationPricingHeaders, collection: CollProductVariationPrice }
-    { id: 'WebsiteInventory', name: 'Website Inventory', isDone: false, isActive: false, 'esKey': 'inventory' }
-  ]
+let fileTypes = [
+  { id: 'WebsiteInventory', name: 'Website Inventory', isDone: false, isActive: false, 'esKey': 'inventory' }
+]
 
 let rethinkDbConnectionObj = null
 let doJob = async function (objWorkJob, next) {
@@ -153,7 +146,7 @@ function updateImportTrackerStatus (trackerId) {
       rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
       rethink.db(rethinkDBConnection.db).table(rethinkDBConnection.table)
       .filter({'id': trackerId})
-      .update({stepStatus: 'import_to_confirm'})
+      .update({"masterJobStatus":  "completed" , "stepStatus":  "import_completed"})
       .run(rethinkDbConnectionObj, function (err, cursor) {
         if (err) {
           reject(err)
@@ -294,28 +287,7 @@ let getUserRequestResponse = async function (objWorkJob) {
   if (userData && Object.keys(userData).length > 0) {
     // User Exists
     ESuserData = JSON.parse(userData)
-    let PreviewUserData = await makeNewPreviewUser(objWorkJob)
-    let userObject = {
-      'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
-      'full_name': jobData.userdetails.fullname !== '' && jobData.userdetails.fullname !== undefined ? jobData.userdetails.fullname : 'Supplier',
-      'metadata': {
-        'company': jobData.userdetails.company !== '' && jobData.userdetails.company !== undefined ? jobData.userdetails.company : ''
-      }
-    }
-    rethinkDbConnectionObj = await connectRethinkDB(rethinkDBConnection)
-    let isUserNotExist = await findVirtualShopData(rethinkDbConnectionObj, rethinkDBConnection.vshopdb, rethinkDBConnection.vshoptable, username, userObject)
-    if(isUserNotExist) {
-      let userObject = {
-        'password': jobData.userdetails.password !== '' && jobData.userdetails.password !== undefined ? jobData.userdetails.password : '123456',
-        }
-      await makeHttpsPostPasswordUpdateRequest(username, userObject)
-    }
     return ESuserData
-  } else {
-    // make new user with version
-    let userData = await makeNewUser(objWorkJob)
-    let PreviewUserData = await makeNewPreviewUser(objWorkJob)
-    return userData
   }
 }
 
@@ -367,20 +339,8 @@ async function makeNewPreviewUser (objWorkJob) {
     },
     'enabled': true
   }
-
-
-   makeHttpsPostRequest(username, userObject)
-
-  // let userData = await getESUser(username)
-  // console.log('==await response==', userData)
-  // if (userData && Object.keys(userData).length > 0) {
-  //   // User Exists
-  //   // console.log('User Exists', objWorkJob)
-  //   // ESuserData = JSON.parse(userData)
-  //   return ESuserData
-  // }
+  makeHttpsPostRequest(username, userObject)
 }
-
 
 function getUserDataFromMongo(userid) {
   let ObjMain = new ObjSchema({_id: 'string'}, {strict: false,bufferCommands: false, 'collection': 'users'})
@@ -410,22 +370,10 @@ async function userDataPrepared (objWorkJob) {
       let currentProducts = []
       let futureProducts = []
       let makeProductUpdateJsonObj = []
+      currentProducts = await getCurrentProduct(ESuserData[jobData.userdetails.id]).catch(err => {
+            console.log("getCurrentProduct err",err)
+          })
       console.log("==================",objWorkJob.data.uploadType,"===============")
-      if (objWorkJob.data.uploadType != 'replace') {
-        currentProducts = await getCurrentProduct(ESuserData[jobData.userdetails.id]).catch(err => {
-          console.log("getCurrentProduct err",err)
-        })
-
-        futureProducts = await getFutureProduct(listObjects).catch(err => {
-          console.log("getFutureProduct err",err)
-        })
-
-        makeProductUpdateJsonObj = await getUpdateRecords(objWorkJob, currentProducts, futureProducts).catch(err => {
-          console.log("getFutureProduct err",err)
-        })
-
-      }
-      // console.log()
       await makeBatch(objWorkJob, listObjects, currentProducts, makeProductUpdateJsonObj)
       .then((result) => {
         console.log('=================================makeBatch=========result=====', result)
@@ -486,9 +434,6 @@ async function getCurrentProduct (usernameObj) {
   else {
     return currentProducts
   }
-  //  console.log("current ProductsData.......................",currentProductsData)
-  //  console.log("current ProductsData hits.......................",currentProductsData.hits)
-  //  console.log("current ProductsData hits hits.......................",currentProductsData.hits.hits)
   if(currentProductsData != undefined){
   currentProductsData = currentProductsData.hits.hits
   currentProducts = []
@@ -565,12 +510,6 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
     let jobData = objWorkJob.data
     let getUserNextVersion = await getUserNewVersion(ESuserData[jobData.userdetails.id])
 
-    // console.log("=================getUserNextVersion=", getUserNextVersion)
-    // delete data in ES for current version
-    await deleteESData(getUserNextVersion, ESuserData[jobData.userdetails.id]).catch(err =>{
-      console.log(err)
-    })
-
     let mainFileObj = listObjects[0]
     //console.log(mainFileObj)
     let mainFileData = makeDynamicCollectionObj(mainFileObj['indexKey'])
@@ -589,17 +528,6 @@ async function makeBatch (objWorkJob, listObjects, currentProductsData, makeProd
         }
 
         console.log('========', totalBatch)
-
-        await dumpToES(makeProductUpdateJsonObj)
-        .then((result) => {
-          console.log('==========dumpToES=result=====', result)
-          uploadedRecord += makeProductUpdateJsonObj.length > 0 ? makeProductUpdateJsonObj.length / 2 : 0
-          // resolve(result)
-        })
-        .catch(err => {
-          console.log(err)
-          // reject(err)
-        })
 
         let batchPromiseObj
         for (let offset = 1; offset <= totalBatch; offset++) {
@@ -679,9 +607,7 @@ return new Promise(async (resolve, reject) => {
 
     //console.log(`=================console ${data.length}`, listObjects)
     let makeProductJsonObj = makeProductUpdateJsonObj
-    let activeSummaryObj
-    let getUserNextVersion = await getUserNewVersion(ESuserData[jobData.userdetails.id])
-
+    
     // console.log("=======getUserNextVersion=",getUserNextVersion)
     let currentProductData = []
     let idInc = 0
@@ -693,160 +619,38 @@ return new Promise(async (resolve, reject) => {
       activeSummary.length = 0;
       // console.log("**************************",activeSummary,"*******************");
 
-      if(jobData.uploadType == 'update') {
+      if(jobData.uploadType === 'inventory') {
         if(currentProductsData[value.sku] == undefined) {
           continue
         }
-      }
-      //console.log('ID:' + data[index])
-      // new ObjectId(data[index]._id)
-      // console.log(query);
-      //let currentProductData = await getProductDataByESData(ESuserData[jobData.userdetails.id], value.sku)
-      if(currentProductsData[value.sku]) {
-          currentProductData = currentProductsData[value.sku]._source
       } else {
-          currentProductData = undefined
+        continue
       }
-      // -----file objects
-     let otherValue = null
-     for (let listObjectKey in listObjects) {
-      if(listObjects[listObjectKey].indexKey !== 'ProductInformation') {
-       value = await getProductSpecificOtherValues(listObjects[listObjectKey], value, currentProductData)
+
+    value = await getProductSpecificOtherValues(listObjects[0], value, currentProductData)
+    makeProductJsonObj.push({
+      update: {
+        _index: productIndex,
+        _type: productDataType,
+        _id: currentProductsData[value.sku]._id // data[index]._id
       }
-     }
-     makeProductJsonObj.push({
-        index: {
-          _index: productIndex,
-          _type: productDataType,
-          _id: uuidV1() + '-' + idInc // data[index]._id
-        }
-      })
-      // delete _id form value object
+    })
+    // delete _id form value object
       delete (value._id)
       delete (value.fileID)
       delete (value.sr_no)
       delete (value.owner)
+      delete (value['import-tracker_id'])
+      delete (value.username)
 
-      //console.log(value)
-      // let available_regions =  value['available_regions'].toString();
-      // console.log("*********************",  available_regions)
-      // let available_regions_data = {}
-      // available_regions_data.push(available_regions)
-      // value['available_regions'] = available_regions.split(",")
-      // console.log("*********************",  value['available_regions'])
-       if(value['available_regions']){
-         value['available_regions'] = convertStringToArray(value['available_regions'], ',')
-       }
-       else{
-         value['available_regions'] = []
-       }
-
-       if(value['non-available_regions']){
-         value['non-available_regions'] = convertStringToArray(value['non-available_regions'], ',')
-       }
-       else{
-         value['non-available_regions'] = []
-       }
-
-       if(value['special_price_valid_up_to'] !== undefined && value['special_price_valid_up_to'] === '') {
-         delete(value['special_price_valid_up_to'])
-       }
-
-      value['available_currencies'] = convertStringToArray(value['available_currencies'], '|')
-      if(value['categories']) {
-        value['categories'] = convertStringToArray(value['categories'], '|')
+      let inventoryObj = {
+        [listObjects[0].esKey]:value.inventory
       }
-      if (value['search_keyword']) {
-        value['search_keyword'] = convertStringToArray(value['search_keyword'], '|')
-      }
-      if (value['product_tags']) {
-        value['product_tags'] = convertStringToArray(value['tags'], '|')
-      }
-      // value['available_regions'] = convertStringToArray(value['available_regions'], ',')
-      // value['nonavailable_regions'] = convertStringToArray(value['nonavailable_regions'], ',')
-
-
-
-      attributeKeys.forEach(function (aIndex, aValue) {
-        if(value[aIndex] && value[aIndex].length > 0) {
-            if(!value.attributes) {
-              value.attributes = {}
-            }
-            let keyValue = aIndex.replace('attr_', '')
-            value.attributes[keyValue] = convertStringToArray(value[aIndex], '|')
-            let attributes = value.attributes[keyValue].join();
-            activeSummary.push(attributes);
-            // console.log("ACTIVE SUMMARY.............",activeSummary);
-
-            delete(value[aIndex])
-        }
-      })
-
-       let featuresArray = [];
-      featureKeys.forEach(function (fIndex, fValue) {
-        // console.log("---------------findex---------------",fIndex);
-        // console.log("---------------fValue---------------",fValue);
-        // console.log("---------------value[fIndex]---------------",value[fIndex]);
-        if(value[fIndex] && value[fIndex].length > 0) {
-          if(!value.features) {
-            value.features = {}
-          }
-          let keyValue = fIndex.replace('feature_', '')
-
-
-          // let key = "key"
-          // let value = "value"
-          // console.log("***************************",keyValue,"**************************");
-          if (value[fIndex] && value[fIndex] !== '') {
-            let featuresArr = convertStringToArray(value[fIndex], '|')
-            featuresArray.push({"key":featuresArr[0],"value":featuresArr[1]})
-            let features = featuresArr.join();
-            activeSummary.push(features);
-          }
-          delete(value[fIndex])
-        } else {
-          delete(value[fIndex])
-        }
-      })
-      value.features = featuresArray
-      // console.log("^^^^^^^^^^^^^^^^^^^^^^^value['features']^^^^^^^^^^^^^^^^^^^^^",value.features);
-
-      value['activeSummary'] = activeSummary.join()
-      // console.log("++++++++++++++++++++++++++",value['activeSummary'])
-
-      //value['attr_colors'] = convertStringToArray(value['attr_colors'], '|')
-      // console.log("---------------------------------------->",ESuserData[jobData.userdetails.id]['metadata']['company'])
-      // value['supplier_id'] = ESuserData[jobData.userdetails.id]['metadata']['id']
-      value['supplier_id'] = ESuserData[jobData.userdetails.id]['metadata']['id']
-      value['createdAt'] = Date.now()
-      value['supplier_info'] = {
-                                'company': ESuserData[jobData.userdetails.id]['metadata']['company'],
-                                'username': jobData.userdetails.id,
-                                'supplier_name': jobData.userdetails.fullname,
-                                'email': jobData.userdetails.email
-                              }
-      value['vid'] = Array(getUserNextVersion)
-
-      // console.log("Active Summary in the end......",activeSummary);
-      // activeSummaryObj = toObject(activeSummary);
-      // activeSummaryObj =activeSummary.reduce(function(acc, cur, i) {
-      //   acc[i] = cur;
-      //   return acc;
-      // }, {});
-      // console.log("Active Summary Object.................",activeSummaryObj)
-      // value['vid'] = Array('sub5-1')
-//      console.log("---------------Value For ES--------",value)
-      makeProductJsonObj.push(value)
-      // makeProductJsonObj.push({activeSummary:activeSummaryObj})
-      // console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",JSON.stringify(makeProductJsonObj))
-    //  return true
+      
+//    console.log("---------------Value For ES--------",value)
+      makeProductJsonObj.push({doc:inventoryObj})
     }
-
-    //console.log(ESuserData)
-
-    // dump data in ES
-    //  await PushToES(activeSummary)
-//    console.log("==========================dumpToEs==================");
+   
     await dumpToES(makeProductJsonObj)
     .then((result) => {
       console.log('==========dumpToES=result=====', result)
@@ -858,26 +662,13 @@ return new Promise(async (resolve, reject) => {
       console.log(err)
       reject(err)
     })
-
   })
 }
-
-// for (var i = 0; i < activeSummary.length; i++ ) {
-//     ESClient.create({
-//       index: productIndex,
-//       type: productDataType,
-//       body: activeSummary[i]
-//     }, function(error, response){
-//       if(!err){
-//         console.log("active summary inserted.....");
-//       }
-//     });
-// }
 
 async function getProductSpecificOtherValues (fValue, value, currentVal) {
   return new Promise(async (resolve, reject) => {
     let oldValue = value
-    // console.log(".............In getProductSpecificOtherValues................. ")
+    console.log(".............In getProductSpecificOtherValues................. ")
     let currency_key = ""
     let min_price = ""
     let max_price = ""
@@ -891,8 +682,6 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
       resolve(value)
     } else {
       let collObject = makeDynamicCollectionObj(fValue['indexKey'])
-      let available_currencies = convertStringToArray(value['available_currencies'], '|')
-      let baseCurrency =   available_currencies[0]
 
       await collObject.find({'sku': value.sku, 'fileID': fValue['id']}, function (err, result) {
         if(!err) {
@@ -904,20 +693,9 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
               delete result[index].owner
               delete result[index].username
               delete result[index].sr_no
-              if(fValue['indexKey'] == 'ProductShipping'){
-                result[index].shipping_range = formatShippingRange(result[index])
-                // console.log("**************  result[index].shipping_range***************",result[index].shipping_range)
-              }
-
-              if(fValue['indexKey'] == 'ProductImprintData'){
-                result[index].imprint_data_range = formatShippingRange(result[index])
-                // console.log("**************  result[index].shipping_range***************",result[index].shipping_range)
-              }
-
-              if(fValue['indexKey'] === 'ProductImage') {
-                result[index].images = formatImages(result[index])
-                // console.log("###########",result[index])
-              }
+              delete result[index]['import-tracker_id']
+              delete result[index].username
+              delete result[index]._id
 
               if(fValue['indexKey'] === 'WebsiteInventory') {
                 attributeKeys.forEach(function (aIndex, aValue) {
@@ -927,77 +705,13 @@ async function getProductSpecificOtherValues (fValue, value, currentVal) {
                       }
                       let keyValue = aIndex.replace('attr_', '')
                       result[index].attributes[keyValue] = convertStringToArray(result[index][aIndex], '|')
-                      delete(result[index][aIndex])
                   }
+                  delete(result[index][aIndex])
                 })
-              }
-
-              if(fValue['indexKey'] === 'ProductPrice') {
-                if(result[index].currency != baseCurrency){
-
-                  currency_key = '_' + result[index].currency;
-
-                } else {
-                  currency_key = ''
-                }
-
-                  result[index].price_range = formatPriceRange(result[index])
-                  // console.log("result[index]..1111........",result[index])
-                  // console.log("result[index][price_type]..........",result[index]["price_type"])
-                  if(result[index]["price_type"]== "regular" && (result[index]["type"]== "decorative" || result[index]["type"]== "") && result[index]["global_price_type"] == "global"){
-                  min_price = result[index]["price_range"][0]["price"]
-
-                  let price_range = result[index]["price_range"]
-                  // console.log("price_range",price_range)
-                  for(i=0;i<price_range.length;i++){
-                    let length = price_range.length
-                    // console.log("length...",length)
-                    if(length > 1){
-                      // console.log("called........")
-                    max_price = price_range[length-1]["price"]
-                    // console.log("max_price",max_price)
-                    }
-                  }
-                }
-
-
-                attributeKeys.forEach(function (aIndex, aValue) {
-                  if(result[index][aIndex] && result[index][aIndex].length > 0) {
-                      if(!result[index].attributes) {
-                        result[index].attributes = {}
-                      }
-                      let keyValue = aIndex.replace('attr_', '')
-                      result[index].attributes[keyValue] = convertStringToArray(result[index][aIndex], '|')
-                      // let attributes =  result[index].attributes[keyValue].join();
-                      // activeSummary.push(attributes);
-                      // console.log("*************ACTIVE SUMMARY************",activeSummary);
-                      delete(result[index][aIndex])
-                  }
-                })
-
-                if(pricingArr[fValue['esKey']+currency_key] == undefined) {
-                  pricingArr[fValue['esKey']+currency_key] = []
-                }
-                pricingArr[fValue['esKey']+currency_key].push(result[index])
               }
             })
-
-            if(fValue['indexKey'] == 'ProductPrice') {
-               // console.log("========32323333232==========================pricingArr=",pricingArr)
-              value["min_price"] = min_price
-              value["max_price"] = max_price
-              // console.log("min_price................",value["min_price"],value["max_price"])
-                for (var property in pricingArr) {
-                  if (pricingArr.hasOwnProperty(property)) {
-                      value[property]=pricingArr[property]
-                      // console.log("value[property]",value[property])
-                      // console.log("value",value) // do stuff
-                  }
-                }
-            } else {
-                value[fValue['esKey']] = result
-                // console.log("value[fValue['esKey']]",value[fValue['esKey']])
-            }
+            value[fValue['esKey']] = result
+            // console.log("value[fValue['esKey']]",value[fValue['esKey']])
           }
           resolve(value)
         } else {
@@ -1040,27 +754,6 @@ function formatPriceRange (result) {
   }
   return (priceRange);
 }
-
-// function minPrice (result) {
-//     if(result['qty_1_min']) {
-//       if(result['qty_1_max'] > 0) {
-//         priceRange.push({'qty': {'gte': result['qty_' + i + '_min'],
-//           'lte': result['qty_' + i + '_max'] > 0 ? result['qty_' + i + '_max'] : 0 },
-//           'price': result['price_' + i],
-//           'code': result['code_' + i]})
-//         } else {
-//           priceRange.push({'qty': {'gte': result['qty_' + i + '_min'] },
-//             'price': result['price_' + i],
-//             'code': result['code_' + i]})
-//         }
-//         delete result['qty_' + i + '_min']
-//         delete result['qty_' + i + '_max']
-//         delete result['price_' + i]
-//         delete result['code_' + i]
-//     }
-//   }
-//   return (priceRange);
-// }
 
 function formatShippingRange (result) {
   let shippingRange = []
@@ -1252,7 +945,6 @@ async function dumpToES (makeProductJsonObj) {
   })
 }
 
-
 function convertStringToArray (str, seprater) {
   return str.toString().split(seprater)
 }
@@ -1288,8 +980,6 @@ function updateJobQueueStatus (objWorkJob) {
       }
     })
 }
-
-
 
 function makeHttpRequest (httpOptions, httpCallback, returnParameter) {
   let objHttpCallBack = httpCallback
