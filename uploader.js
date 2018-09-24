@@ -761,6 +761,8 @@ return new Promise(async (resolve, reject) => {
       }
       if (value['product_tags']) {
         value['product_tags'] = convertStringToArray(value['tags'], '|')
+      } else {
+        value['product_tags'] = []
       }
       // value['available_regions'] = convertStringToArray(value['available_regions'], ',')
       // value['nonavailable_regions'] = convertStringToArray(value['nonavailable_regions'], ',')
