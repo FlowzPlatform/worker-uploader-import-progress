@@ -1,0 +1,62 @@
+sudo: required
+
+language: node
+
+services:
+  - docker
+
+branches:
+  only:
+  - master
+  - develop
+  - staging
+  - QA
+
+jobs:
+  include:
+    - stage: Worker-Uploader-Progress
+      script:
+      - 'if [ ${TRAVIS_BRANCH} = "master" ]; then
+            docker login -u="$DOCKER_USERNAME_FLOWZ" -p="$DOCKER_PASSWORD_FLOWZ";
+            docker build -t worker_uploader_import_progress:latest .;
+            docker images;
+            docker tag worker_uploader_import_progress:latest $DOCKER_USERNAME_FLOWZ/worker_uploader_import_progress:latest;
+            docker push $DOCKER_USERNAME_FLOWZ/worker_uploader_import_progress:latest;
+        elif [ ${TRAVIS_BRANCH} = "develop" ]; then
+            docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+            docker build -t worker_uploader_import_progress:dev .;
+            docker images;
+            docker tag worker_uploader_import_progress:dev $DOCKER_USERNAME/worker_uploader_import_progress:dev;
+            docker push $DOCKER_USERNAME/worker_uploader_import_progress:dev;
+        elif [ ${TRAVIS_BRANCH} = "staging" ]; then
+            docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+            docker build -t worker_uploader_import_progress:$TRAVIS_BRANCH-$TRAVIS_BUILD_NUMBER .;
+            docker tag worker_uploader_import_progress:$TRAVIS_BRANCH-$TRAVIS_BUILD_NUMBER $DOCKER_USERNAME/worker_uploader_import_progress:$TRAVIS_BRANCH-$TRAVIS_BUILD_NUMBER;
+            docker tag worker_uploader_import_progress:$TRAVIS_BRANCH-$TRAVIS_BUILD_NUMBER $DOCKER_USERNAME/worker_uploader_import_progress:staging;
+            docker images;
+            docker push $DOCKER_USERNAME/worker_uploader_import_progress:$TRAVIS_BRANCH-$TRAVIS_BUILD_NUMBER;
+            docker push $DOCKER_USERNAME/worker_uploader_import_progress:staging;
+        else
+            docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+            docker build -t worker_uploader_import_progress:qa .;
+            docker images;
+            docker tag worker_uploader_import_progress:qa $DOCKER_USERNAME/worker_uploader_import_progress:qa;
+            docker push $DOCKER_USERNAME/worker_uploader_import_progress:qa;
+        fi'
+    - stage: Upgrade Rancher Service
+      script:
+      - bash ./upgrade.sh
+    - stage: Finish Rancher Service
+      script:
+      - bash ./finish.sh
+
+notifications:
+  email:
+    recipients:
+      - arpitap@officebeacon.com
+      - kaushalm@officebrain.com
+      - anuj@officebrain.com
+      - naveeng@officebrain.com
+      - chirag@officebrain.com
+    on_success: always
+    on_failure: always
