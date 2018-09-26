@@ -764,6 +764,13 @@ return new Promise(async (resolve, reject) => {
       } else {
         value['product_tags'] = []
       }
+
+      if (value['releated_sku']) {
+        value['releated_sku'] = convertStringToArray(value['releated_sku'], '|')
+      } else {
+        value['releated_sku'] = []
+      }
+
       // value['available_regions'] = convertStringToArray(value['available_regions'], ',')
       // value['nonavailable_regions'] = convertStringToArray(value['nonavailable_regions'], ',')
 
