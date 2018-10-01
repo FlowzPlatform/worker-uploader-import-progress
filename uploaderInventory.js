@@ -50,7 +50,7 @@ if (process.env.pdmIndex !== undefined && process.env.pdmIndex !== '') {
   pdmIndex = process.env.pdmIndex
 }
 
-let attributeKeys = ['attr_colors','attr_imprint_color', 'attr_shape', 'attr_decimal', 'attr_style', 'attr_size']
+let attributeKeys = ['attr_colors','attr_imprint_color', 'attr_shape', 'attr_decimal', 'attr_style', 'attr_size', 'attr_actual_colors']
 let featureKeys = ['feature_1','feature_2','feature_3','feature_4','feature_5','feature_6','feature_7','feature_8','feature_9','feature_10','feature_11','feature_12','feature_13','feature_14','feature_15','feature_16','feature_17','feature_18','feature_19','feature_20','feature_21','feature_22','feature_23','feature_24','feature_25','feature_26','feature_27','feature_28','feature_29','feature_30','feature_31','feature_32','feature_33','feature_34']
 
 let ESConnection = extend({}, config.get('ESConnection'))
