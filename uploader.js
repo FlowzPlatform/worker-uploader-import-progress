@@ -751,6 +751,10 @@ return new Promise(async (resolve, reject) => {
        if(value['special_price_valid_up_to'] !== undefined && value['special_price_valid_up_to'] === '') {
          delete(value['special_price_valid_up_to'])
        }
+       
+       if(value['valid_up_to'] !== undefined && value['valid_up_to'] === '') {
+        delete(value['valid_up_to'])
+       }
 
       value['available_currencies'] = convertStringToArray(value['available_currencies'], '|')
       if(value['categories']) {
